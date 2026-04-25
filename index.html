@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Tetris Móvil - Responsive con Botones Táctiles</title>
+    <style>
+        * {
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation; /* Mejorar respuesta táctil */
+        }
+
+        body {
+            background: linear-gradient(145deg, #0a0f1e 0%, #0c1222 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', 'Courier New', monospace;
+            margin: 0;
+            padding: 16px;
+        }
+
+        /* Contenedor principal con flex responsivo */
+        .game-container {
+            background: #1a1f2f;
+            border-radius: 32px;
+            padding: 20px;
+            box-shadow: 0 20px 35px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+            max-width: 550px;
+            width: 100%;
+        }
+
+        /* Área superior: canvas principal y panel info */
+        .top-area {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            width: 100%;
+        }
+
+        /* Canvas principal: tamaño fijo lógico (300x600) pero escalable */
+        .canvas-wrapper {
+            display: flex;
+            justify-content: center;
+        }
+        #tetrisCanvas {
+            background-color: #0b0e16;
+            border-radius: 16px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+            display: block;
+            width: 100%;
+            height: auto;
+            max-width: 300px;
+            cursor: pointer;
+        }
+
+        .info-panel {
+            background: #10131f;
+            border-radius: 24px;
+            padding: 15px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 18px rgba(0, 0, 0, 0.3);
+            min-width: 140px;
+        }
+
+        .next-box {
+            background: #070a12;
+            border-radius: 20px;
+            padding: 10px 15px;
+            text-align: center;
+        }
+        .next-box p {
+            margin: 0 0 8px 0;
+            color: #bbd9ff;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        #nextCanvas {
+            background-color: #0b0e16;
+            border-radius: 12px;
+            display: block;
+            width: 90px;
+            height: 90px;
+        }
+
+        .score-card {
+            background: #070a12;
+            border-radius: 28px;
+            padding: 8px 16px;
+            text-align: center;
+            width: 100%;
+        }
+        .score-card h3 {
+            margin: 0;
+            font-size: 0.8rem;
+            color: #8aaee0;
+        }
+        .score-value {
+            font-size: 2rem;
+            font-weight: 800;
+            margin: 5px 0;
+            color: #f2e982;
+            text-shadow: 0 0 6px #ffcc44;
+        }
+
+        /* Botón de reinicio y toggle móvil */
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            width: 100%;
+            justify-content: center;
+        }
+        button {
+            background: #2a3b5c;
+            border: none;
+            font-family: inherit;
+            font-weight: bold;
+            font-size: 1rem;
+            padding: 8px 16px;
+            border-radius: 60px;
+            color: white;
+            cursor: pointer;
+            transition: 0.05s linear;
+            box-shadow: 0 4px 0 #0f1420;
+            touch-action: manipulation;
+        }
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 1px 0 #0f1420;
+        }
+
+        /* Panel de botones táctiles (solo visible en modo móvil) */
+        .touch-panel {
+            display: none;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            width: 100%;
+            margin-top: 8px;
+            background: #10131f80;
+            padding: 12px;
+            border-radius: 40px;
+            backdrop-filter: blur(4px);
+        }
+        .touch-panel button {
+            background: #1f2a44;
+            font-size: 1.8rem;
+            padding: 12px 0;
+            box-shadow: 0 4px 0 #0a0e1a;
+            text-align: center;
+            line-height: 1;
+            touch-action: manipulation;
+        }
+        .touch-panel button:active {
+            transform: translateY(2px);
+        }
+        .pause-btn {
+            background: #5a3e2c !important;
+        }
+
+        /* Clase para mostrar panel táctil */
+        .show-touch .touch-panel {
+            display: grid;
+        }
+
+        .toggle-btn {
+            background: #2f5a4c;
+        }
+
+        .controls-tip {
+            font-size: 0.65rem;
+            color: #6c7fa0;
+            text-align: center;
+            background: #05070e80;
+            padding: 6px 12px;
+            border-radius: 40px;
+            width: 100%;
+        }
+
+        @media (max-width: 550px) {
+            .game-container {
+                padding: 12px;
+            }
+            .info-panel {
+                padding: 10px;
+            }
+            .score-value {
+                font-size: 1.6rem;
+            }
+            button {
+                font-size: 0.9rem;
+                padding: 6px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="game-container" id="gameContainer">
+    <div class="top-area">
+        <div class="canvas-wrapper">
+            <canvas id="tetrisCanvas" width="300" height="600"></canvas>
+        </div>
+        <div class="info-panel">
+            <div class="next-box">
+                <p>▶ SIGUIENTE</p>
+                <canvas id="nextCanvas" width="120" height="120"></canvas>
+            </div>
+            <div class="score-card">
+                <h3>PUNTUACIÓN</h3>
+                <div class="score-value" id="scoreDisplay">0</div>
+            </div>
+            <div class="action-buttons">
+                <button id="resetButton">🔄 REINICIAR</button>
+                <button id="toggleMobileBtn" class="toggle-btn">📱 MODO MÓVIL</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel de botones táctiles (se muestra con clase) -->
+    <div class="touch-panel" id="touchPanel">
+        <button id="moveLeftBtn">⬅️</button>
+        <button id="moveRightBtn">➡️</button>
+        <button id="moveDownBtn">⬇️</button>
+        <button id="rotateBtn">🔄</button>
+        <button id="hardDropBtn">💥⬇️</button>
+        <button id="pauseBtn" class="pause-btn">⏸️ PAUSA</button>
+    </div>
+    <div class="controls-tip" id="controlTip">
+        ⌨️ PC: flechas + espacio | 📱 Botones táctiles activados
+    </div>
+</div>
+
+<script>
+    (function(){
+        // ---------- CONFIGURACIÓN DEL JUEGO ----------
+        const COLS = 10;
+        const ROWS = 20;
+        const CELL_SIZE = 30;      // px lógicos (canvas 300x600)
+        const BASE_SPEED_MS = 420;
+
+        // Canvas
+        const canvas = document.getElementById('tetrisCanvas');
+        const ctx = canvas.getContext('2d');
+        const nextCanvas = document.getElementById('nextCanvas');
+        const nextCtx = nextCanvas.getContext('2d');
+        const scoreSpan = document.getElementById('scoreDisplay');
+
+        // ---------- PIEZAS ----------
+        const TETROMINOS = [
+            { shape: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], color: '#2ad4e3' },
+            { shape: [[0,0,0,0],[0,1,1,0],[0,1,1,0],[0,0,0,0]], color: '#f7d44a' },
+            { shape: [[0,0,0,0],[0,1,0,0],[1,1,1,0],[0,0,0,0]], color: '#cc6aef' },
+            { shape: [[0,0,0,0],[0,1,1,0],[1,1,0,0],[0,0,0,0]], color: '#5fdc7a' },
+            { shape: [[0,0,0,0],[1,1,0,0],[0,1,1,0],[0,0,0,0]], color: '#e35f5f' },
+            { shape: [[0,0,0,0],[1,0,0,0],[1,1,1,0],[0,0,0,0]], color: '#f0a25e' },
+            { shape: [[0,0,0,0],[0,0,1,0],[1,1,1,0],[0,0,0,0]], color: '#6b9bf5' }
+        ];
+
+        function getRandomTetromino() {
+            const idx = Math.floor(Math.random() * TETROMINOS.length);
+            const original = TETROMINOS[idx];
+            return {
+                shape: original.shape.map(row => [...row]),
+                color: original.color
+            };
+        }
+
+        function rotateShapeClockwise(shape) {
+            const n = shape.length;
+            const rotated = Array(n).fill().map(() => Array(n).fill(0));
+            for (let i = 0; i < n; i++)
+                for (let j = 0; j < n; j++)
+                    rotated[j][n - 1 - i] = shape[i][j];
+            return rotated;
+        }
+
+        // ---------- ESTADO DEL JUEGO ----------
+        let board = Array(ROWS).fill().map(() => Array(COLS).fill(0));
+        let currentPiece = null;
+        let nextPiece = null;
+        let score = 0;
+        let gameActive = true;
+        let isPaused = false;
+        let gameLoopInterval = null;
+
+        // Modo móvil (panel táctil)
+        let isMobileMode = false;  // inicialmente falso, se activa con botón o detección automática
+
+        // ---------- FUNCIONES DEL JUEGO ----------
+        function updateScoreUI() {
+            scoreSpan.innerText = score;
+        }
+
+        function addLinesCleared(linesCount) {
+            if (linesCount === 1) score += 100;
+            else if (linesCount === 2) score += 300;
+            else if (linesCount === 3) score += 500;
+            else if (linesCount >= 4) score += 800;
+            updateScoreUI();
+        }
+
+        function clearFullRows() {
+            let rowsCleared = 0;
+            for (let row = ROWS-1; row >= 0; ) {
+                let full = true;
+                for (let col = 0; col < COLS; col++) {
+                    if (board[row][col] === 0) { full = false; break; }
+                }
+                if (full) {
+                    for (let r = row; r > 0; r--) board[r] = [...board[r-1]];
+                    board[0] = Array(COLS).fill(0);
+                    rowsCleared++;
+                } else { row--; }
+            }
+            if (rowsCleared > 0) addLinesCleared(rowsCleared);
+        }
+
+        function collides(shape, offsetX, offsetY) {
+            for (let i = 0; i < shape.length; i++) {
+                for (let j = 0; j < shape[i].length; j++) {
+                    if (shape[i][j] !== 0) {
+                        const boardX = offsetX + j;
+                        const boardY = offsetY + i;
+                        if (boardX < 0 || boardX >= COLS || boardY >= ROWS || boardY < 0) return true;
+                        if (boardY >= 0 && board[boardY][boardX] !== 0) return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        function mergePiece() {
+            if (!currentPiece) return;
+            const { shape, color, x, y } = currentPiece;
+            for (let i = 0; i < shape.length; i++) {
+                for (let j = 0; j < shape[i].length; j++) {
+                    if (shape[i][j] !== 0) {
+                        const boardX = x + j;
+                        const boardY = y + i;
+                        if (boardY >= 0 && boardY < ROWS && boardX >= 0 && boardX < COLS)
+                            board[boardY][boardX] = color;
+                    }
+                }
+            }
+            clearFullRows();
+            spawnNewPieceFromNext();
+            drawAll();
+        }
+
+        function movePiece(dx, dy) {
+            if (!gameActive || isPaused || !currentPiece) return false;
+            const newX = currentPiece.x + dx;
+            const newY = currentPiece.y + dy;
+            if (!collides(currentPiece.shape, newX, newY)) {
+                currentPiece.x = newX;
+                currentPiece.y = newY;
+                drawAll();
+                return true;
+            }
+            if (dy === 1) {
+                mergePiece();
+                drawAll();
+                if (!gameActive) stopGameLoop();
+            }
+            return false;
+        }
+
+        function rotatePiece() {
+            if (!gameActive || isPaused || !currentPiece) return;
+            const rotated = rotateShapeClockwise(currentPiece.shape);
+            const oldX = currentPiece.x, oldY = currentPiece.y;
+            if (!collides(rotated, oldX, oldY)) {
+                currentPiece.shape = rotated;
+                drawAll();
+                return;
+            }
+            for (let offset of [-1, 1, -2, 2]) {
+                if (!collides(rotated, oldX + offset, oldY)) {
+                    currentPiece.shape = rotated;
+                    currentPiece.x += offset;
+                    drawAll();
+                    return;
+                }
+            }
+        }
+
+        function hardDrop() {
+            if (!gameActive || isPaused || !currentPiece) return;
+            while (!collides(currentPiece.shape, currentPiece.x, currentPiece.y + 1)) {
+                currentPiece.y++;
+            }
+            mergePiece();
+            drawAll();
+            if (!gameActive) stopGameLoop();
+        }
+
+        function spawnNewPieceFromNext() {
+            if (!nextPiece) nextPiece = getRandomTetromino();
+            const newPiece = {
+                shape: nextPiece.shape.map(row => [...row]),
+                color: nextPiece.color,
+                x: Math.floor((COLS - nextPiece.shape[0].length) / 2),
+                y: 0
+            };
+            currentPiece = newPiece;
+            nextPiece = getRandomTetromino();
+            if (collides(currentPiece.shape, currentPiece.x, currentPiece.y)) {
+                gameActive = false;
+                if (gameLoopInterval) clearInterval(gameLoopInterval);
+                gameLoopInterval = null;
+                drawAll();
+                return;
+            }
+            gameActive = true;
+            drawAll();
+        }
+
+        // Pausa
+        function togglePause() {
+            if (!gameActive) return;
+            isPaused = !isPaused;
+            const pauseBtnElem = document.getElementById('pauseBtn');
+            if (pauseBtnElem) {
+                pauseBtnElem.textContent = isPaused ? '▶️ REANUDAR' : '⏸️ PAUSA';
+            }
+            drawAll();  // para mostrar mensaje de pausa en canvas
+        }
+
+        // ---------- DIBUJADO ----------
+        function drawBoardAndPiece() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Tablero
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    const color = board[row][col];
+                    if (color !== 0) {
+                        ctx.fillStyle = color;
+                        ctx.fillRect(col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE-1, CELL_SIZE-1);
+                        ctx.fillStyle = 'rgba(255,255,255,0.25)';
+                        ctx.fillRect(col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE-1, 3);
+                    } else {
+                        ctx.strokeStyle = '#20263b';
+                        ctx.lineWidth = 0.6;
+                        ctx.strokeRect(col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                    }
+                }
+            }
+            // Pieza actual
+            if (currentPiece && gameActive && !isPaused) {
+                const { shape, color, x, y } = currentPiece;
+                for (let i = 0; i < shape.length; i++) {
+                    for (let j = 0; j < shape[i].length; j++) {
+                        if (shape[i][j]) {
+                            ctx.fillStyle = color;
+                            ctx.fillRect((x + j) * CELL_SIZE, (y + i) * CELL_SIZE, CELL_SIZE-1, CELL_SIZE-1);
+                            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                            ctx.fillRect((x + j) * CELL_SIZE, (y + i) * CELL_SIZE, CELL_SIZE-1, 4);
+                        }
+                    }
+                }
+            }
+            // Mensajes de Game Over o Pausa
+            if (!gameActive) {
+                ctx.globalAlpha = 0.75;
+                ctx.fillStyle = '#0a0e1c';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = '#ffcf8a';
+                ctx.font = 'bold 22px "Courier New", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2 - 20);
+                ctx.font = 'bold 12px monospace';
+                ctx.fillStyle = '#bbccff';
+                ctx.fillText('presiona REINICIAR', canvas.width/2, canvas.height/2 + 35);
+                ctx.textAlign = 'left';
+            } else if (isPaused && gameActive) {
+                ctx.globalAlpha = 0.7;
+                ctx.fillStyle = '#10131f';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = '#f0e6a0';
+                ctx.font = 'bold 24px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('⏸ PAUSA', canvas.width/2, canvas.height/2);
+                ctx.textAlign = 'left';
+            }
+        }
+
+        function drawPreview() {
+            nextCtx.clearRect(0, 0, 120, 120);
+            nextCtx.fillStyle = '#0b0e16';
+            nextCtx.fillRect(0, 0, 120, 120);
+            if (nextPiece) {
+                const shape = nextPiece.shape;
+                const color = nextPiece.color;
+                const size = 24; // preview cell size
+                const offsetX = (120 - (shape.length * size)) / 2;
+                const offsetY = (120 - (shape.length * size)) / 2;
+                for (let i = 0; i < shape.length; i++) {
+                    for (let j = 0; j < shape.length; j++) {
+                        if (shape[i][j]) {
+                            nextCtx.fillStyle = color;
+                            nextCtx.fillRect(offsetX + j * size, offsetY + i * size, size-2, size-2);
+                            nextCtx.fillStyle = 'rgba(255,255,240,0.3)';
+                            nextCtx.fillRect(offsetX + j * size, offsetY + i * size, size-2, 4);
+                        }
+                    }
+                }
+            }
+        }
+
+        function drawAll() {
+            drawBoardAndPiece();
+            drawPreview();
+        }
+
+        // ---------- CICLO DE JUEGO ----------
+        function gameTick() {
+            if (!gameActive || isPaused) return;
+            if (currentPiece) movePiece(0, 1);
+            drawAll();
+        }
+
+        function startGameLoop() {
+            if (gameLoopInterval) clearInterval(gameLoopInterval);
+            gameLoopInterval = setInterval(() => gameTick(), BASE_SPEED_MS);
+        }
+
+        function stopGameLoop() {
+            if (gameLoopInterval) {
+                clearInterval(gameLoopInterval);
+                gameLoopInterval = null;
+            }
+        }
+
+        // ---------- REINICIO ----------
+        function resetGame() {
+            stopGameLoop();
+            board = Array(ROWS).fill().map(() => Array(COLS).fill(0));
+            score = 0;
+            updateScoreUI();
+            gameActive = true;
+            isPaused = false;
+            // Actualizar texto botón pausa
+            const pauseBtnElem = document.getElementById('pauseBtn');
+            if (pauseBtnElem) pauseBtnElem.textContent = '⏸️ PAUSA';
+            // Generar piezas
+            nextPiece = getRandomTetromino();
+            const initialPiece = {
+                shape: nextPiece.shape.map(row => [...row]),
+                color: nextPiece.color,
+                x: Math.floor((COLS - nextPiece.shape[0].length) / 2),
+                y: 0
+            };
+            currentPiece = initialPiece;
+            nextPiece = getRandomTetromino();
+            if (collides(currentPiece.shape, currentPiece.x, currentPiece.y)) {
+                // reinicio forzado limpio
+                board = Array(ROWS).fill().map(() => Array(COLS).fill(0));
+                currentPiece.x = Math.floor((COLS - currentPiece.shape[0].length)/2);
+                currentPiece.y = 0;
+            }
+            gameActive = true;
+            drawAll();
+            startGameLoop();
+        }
+
+        // ---------- CONTROLES ----------
+        function handleKeyDown(e) {
+            const key = e.key;
+            const prevent = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Space'];
+            if (prevent.includes(key) || key === ' ') e.preventDefault();
+            if (!gameActive && key !== 'r' && key !== 'R') return;
+            // Si está pausado, solo permitir reanudar con P o botón, o reiniciar
+            if (isPaused && !(key === 'p' || key === 'P' || key === 'r' || key === 'R')) return;
+            switch(key) {
+                case 'ArrowLeft': movePiece(-1,0); break;
+                case 'ArrowRight': movePiece(1,0); break;
+                case 'ArrowDown': movePiece(0,1); break;
+                case 'ArrowUp': rotatePiece(); break;
+                case ' ':
+                case 'Space': hardDrop(); break;
+                case 'p':
+                case 'P': togglePause(); drawAll(); break;
+                case 'r':
+                case 'R': resetGame(); break;
+                default: break;
+            }
+            drawAll();
+        }
+
+        // ---------- MODO MÓVIL (botones táctiles) ----------
+        function setMobileMode(enable) {
+            isMobileMode = enable;
+            const container = document.getElementById('gameContainer');
+            if (enable) {
+                container.classList.add('show-touch');
+            } else {
+                container.classList.remove('show-touch');
+            }
+            const toggleBtn = document.getElementById('toggleMobileBtn');
+            toggleBtn.innerHTML = enable ? '🖥️ MODO PC' : '📱 MODO MÓVIL';
+        }
+
+        function toggleMobileMode() {
+            setMobileMode(!isMobileMode);
+        }
+
+        function detectAndInitMode() {
+            // Auto-detección: si es táctil o pantalla pequeña
+            const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+            const isSmallScreen = window.innerWidth <= 768;
+            if (isTouchDevice || isSmallScreen) {
+                setMobileMode(true);
+            } else {
+                setMobileMode(false);
+            }
+        }
+
+        // Eventos táctiles (evitar scroll al presionar botones)
+        function attachTouchButtons() {
+            const leftBtn = document.getElementById('moveLeftBtn');
+            const rightBtn = document.getElementById('moveRightBtn');
+            const downBtn = document.getElementById('moveDownBtn');
+            const rotateBtn = document.getElementById('rotateBtn');
+            const hardDropBtn = document.getElementById('hardDropBtn');
+            const pauseBtn = document.getElementById('pauseBtn');
+
+            const handleTouch = (callback) => (e) => { e.preventDefault(); callback(); };
+            if (leftBtn) leftBtn.addEventListener('click', () => movePiece(-1,0));
+            if (rightBtn) rightBtn.addEventListener('click', () => movePiece(1,0));
+            if (downBtn) downBtn.addEventListener('click', () => movePiece(0,1));
+            if (rotateBtn) rotateBtn.addEventListener('click', () => rotatePiece());
+            if (hardDropBtn) hardDropBtn.addEventListener('click', () => hardDrop());
+            if (pauseBtn) pauseBtn.addEventListener('click', () => togglePause());
+            // También prevenir eventos táctiles que hagan zoom
+            const allTouchBtns = [leftBtn, rightBtn, downBtn, rotateBtn, hardDropBtn, pauseBtn];
+            allTouchBtns.forEach(btn => {
+                if (btn) {
+                    btn.addEventListener('touchstart', (e) => { e.preventDefault(); btn.click(); });
+                }
+            });
+        }
+
+        // ---------- INICIALIZACIÓN ----------
+        function init() {
+            detectAndInitMode();
+            attachTouchButtons();
+            resetGame();
+            window.addEventListener('keydown', handleKeyDown);
+            document.getElementById('resetButton').addEventListener('click', () => resetGame());
+            document.getElementById('toggleMobileBtn').addEventListener('click', () => toggleMobileMode());
+            // Redibujar si cambia tamaño (para CSS)
+            window.addEventListener('resize', () => drawAll());
+        }
+
+        init();
+    })();
+</script>
+</body>
+</html>
